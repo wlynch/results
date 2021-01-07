@@ -21,7 +21,7 @@ const (
 
 func TestTaskRun(t *testing.T) {
 	tr := new(v1beta1.TaskRun)
-	b, err := ioutil.ReadFile("taskrun.yaml")
+	b, err := ioutil.ReadFile("testdata/taskrun.yaml")
 	if err != nil {
 		t.Fatalf("ioutil.Readfile: %v", err)
 	}
@@ -57,7 +57,7 @@ func TestTaskRun(t *testing.T) {
 
 func TestPipelineRun(t *testing.T) {
 	pr := new(v1beta1.PipelineRun)
-	b, err := ioutil.ReadFile("pipelinerun.yaml")
+	b, err := ioutil.ReadFile("testdata/pipelinerun.yaml")
 	if err != nil {
 		t.Fatalf("ioutil.Readfile: %v", err)
 	}
