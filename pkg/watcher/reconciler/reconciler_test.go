@@ -26,10 +26,12 @@ import (
 	taskruninformer "github.com/tektoncd/pipeline/pkg/client/injection/informers/pipeline/v1beta1/taskrun"
 	rtesting "github.com/tektoncd/pipeline/pkg/reconciler/testing"
 	"github.com/tektoncd/results/pkg/internal/test"
+	"github.com/tektoncd/results/pkg/watcher/reconciler"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/annotation"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/pipelinerun"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/taskrun"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 
 	// Needed for informer injection.
@@ -47,8 +49,9 @@ func TestController(t *testing.T) {
 
 	// Create reconcilers, start controller.
 	results := test.NewResultsClient(t)
-	trctrl := taskrun.NewController(ctx, results)
-	prctrl := pipelinerun.NewController(ctx, results)
+	cmw := configmap.NewStaticWatcher(reconciler.ToConfigMap(&reconciler.Config{}))
+	trctrl := taskrun.NewController(ctx, cmw, results)
+	prctrl := pipelinerun.NewController(ctx, cmw, results)
 	go controller.StartAll(ctx, trctrl, prctrl)
 
 	// Start informers - this notifies the controller of new events.

@@ -27,7 +27,6 @@ import (
 	"time"
 
 	creds "github.com/tektoncd/results/pkg/watcher/grpc"
-	"github.com/tektoncd/results/pkg/watcher/reconciler"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/pipelinerun"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/taskrun"
 	v1alpha2pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
@@ -51,10 +50,9 @@ const (
 )
 
 var (
-	apiAddr          = flag.String("api_addr", "localhost:50051", "Address of API server to report to")
-	authMode         = flag.String("auth_mode", "", "Authentication mode to use when making requests. If not set, no additional credentials will be used in the request. Valid values: [google]")
-	disableCRDUpdate = flag.Bool("disable_crd_update", false, "Disables Tekton CRD annotation update on reconcile.")
-	authToken        = flag.String("token", "", "Authentication token to use in requests. If not specified, on-cluster configuration is assumed.")
+	apiAddr   = flag.String("api_addr", "localhost:50051", "Address of API server to report to")
+	authMode  = flag.String("auth_mode", "", "Authentication mode to use when making requests. If not set, no additional credentials will be used in the request. Valid values: [google]")
+	authToken = flag.String("token", "", "Authentication token to use in requests. If not specified, on-cluster configuration is assumed.")
 )
 
 func main() {
@@ -69,16 +67,12 @@ func main() {
 	defer conn.Close()
 	results := v1alpha2pb.NewResultsClient(conn)
 
-	cfg := &reconciler.Config{
-		DisableAnnotationUpdate: *disableCRDUpdate,
-	}
-
 	restCfg := sharedmain.ParseAndGetConfigOrDie()
 	sharedmain.MainWithConfig(injection.WithNamespaceScope(ctx, ""), "watcher", restCfg,
 		func(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
-			return pipelinerun.NewControllerWithConfig(ctx, results, cfg)
+			return pipelinerun.NewController(ctx, cmw, results)
 		}, func(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
-			return taskrun.NewControllerWithConfig(ctx, results, cfg)
+			return taskrun.NewController(ctx, cmw, results)
 		},
 	)
 }

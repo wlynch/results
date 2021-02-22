@@ -23,25 +23,21 @@ import (
 	"github.com/tektoncd/results/pkg/watcher/results"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"k8s.io/client-go/tools/cache"
+	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 )
 
 // NewController creates a Controller for watching PipelineRuns.
-func NewController(ctx context.Context, client pb.ResultsClient) *controller.Impl {
-	return NewControllerWithConfig(ctx, client, &reconciler.Config{})
-}
-
-func NewControllerWithConfig(ctx context.Context, client pb.ResultsClient, cfg *reconciler.Config) *controller.Impl {
+func NewController(ctx context.Context, cmw configmap.Watcher, client pb.ResultsClient) *controller.Impl {
 	logger := logging.FromContext(ctx)
 	pipelineRunInformer := pipelineruninformer.Get(ctx)
 	pipelineclientset := pipelineclient.Get(ctx)
 	c := &Reconciler{
 		client:            results.NewClient(client),
 		pipelineclientset: pipelineclientset,
-		cfg:               cfg,
 	}
-
+	cmw.Watch(reconciler.ConfigMapName, c.UpdateConfig)
 	impl := controller.NewImpl(c, logger, "PipelineRunResultsWatcher")
 
 	pipelineRunInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{

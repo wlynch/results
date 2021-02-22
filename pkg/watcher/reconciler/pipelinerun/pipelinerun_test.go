@@ -33,6 +33,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 
 	// Needed for informer injection.
@@ -52,8 +53,9 @@ func newEnv(t *testing.T, cfg *reconciler.Config) *env {
 	// Configures fake tekton clients + informers.
 	ctx, _ := rtesting.SetupFakeContext(t)
 
+	cmw := configmap.NewStaticWatcher(reconciler.ToConfigMap(cfg))
 	results := test.NewResultsClient(t)
-	ctrl := NewControllerWithConfig(ctx, results, cfg)
+	ctrl := NewController(ctx, cmw, results)
 
 	pipeline := fakepipelineclient.Get(ctx)
 

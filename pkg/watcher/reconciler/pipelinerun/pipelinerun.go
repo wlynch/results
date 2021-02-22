@@ -22,6 +22,7 @@ import (
 	"github.com/tektoncd/results/pkg/watcher/reconciler/annotation"
 	"github.com/tektoncd/results/pkg/watcher/results"
 	"go.uber.org/zap"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -85,4 +86,9 @@ func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
 		return err
 	}
 	return nil
+}
+
+// UpdateConfig implements the Knative ConfigMap Watcher interface.
+func (r *Reconciler) UpdateConfig(m *corev1.ConfigMap) {
+	r.cfg = reconciler.FromConfigMap(m)
 }

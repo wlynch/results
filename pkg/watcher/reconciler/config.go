@@ -14,6 +14,18 @@
 
 package reconciler
 
+import (
+	"fmt"
+	"strings"
+
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+const (
+	ConfigMapName = "watcher-config"
+)
+
 // Config defines shared reconciler configuration options.
 type Config struct {
 	// Configures whether Tekton CRD objects should be updated with Result
@@ -28,4 +40,24 @@ func (c *Config) GetDisableAnnotationUpdate() bool {
 		return false
 	}
 	return c.DisableAnnotationUpdate
+}
+
+func ToConfigMap(c *Config) *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: ConfigMapName,
+		},
+		Data: map[string]string{
+			"disable_annotation_update": fmt.Sprintf("%t", c.GetDisableAnnotationUpdate()),
+		},
+	}
+}
+
+func FromConfigMap(m *corev1.ConfigMap) *Config {
+	if m == nil {
+		return nil
+	}
+	return &Config{
+		DisableAnnotationUpdate: strings.EqualFold(m.Data["disable_annotation_update"], "true"),
+	}
 }

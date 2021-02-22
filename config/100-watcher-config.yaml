@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: watcher-config
+  namespace: tekton-pipelines
+data:
+  # Disables Tekton CRD annotation update on reconcile.
+  disable_crd_update: "false"
