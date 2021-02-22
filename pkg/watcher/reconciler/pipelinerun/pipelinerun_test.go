@@ -30,6 +30,7 @@ import (
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/protobuf/testing/protocmp"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
@@ -189,5 +190,51 @@ func TestDisableCRDUpdate(t *testing.T) {
 	}
 	if diff := cmp.Diff(pr, got); diff != "" {
 		t.Errorf("Did not expect change in PipelineRun (-want, +got):\n%s", diff)
+	}
+}
+
+func TestRunCleanup(t *testing.T) {
+	env := newEnv(t, &reconciler.Config{
+		CompletedResourceGracePeriod: -1,
+	})
+
+	pr, err := env.pipeline.TektonV1beta1().PipelineRuns("ns").Create(&v1beta1.PipelineRun{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1beta1",
+			Kind:       "pipelinerun",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "pipelinerun",
+			Namespace:   "ns",
+			Annotations: map[string]string{"demo": "demo"},
+			UID:         "12345",
+		},
+		Status: v1beta1.PipelineRunStatus{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{
+					// Mark Run as completed.
+					apis.Condition{
+						Type:   apis.ConditionSucceeded,
+						Status: corev1.ConditionTrue,
+					},
+				},
+			},
+			PipelineRunStatusFields: v1beta1.PipelineRunStatusFields{},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	if err := env.ctrl.Reconciler.Reconcile(env.ctx, pr.GetNamespacedName().String()); err != nil {
+		t.Fatalf("Reconcile: %v", err)
+	}
+
+	// Run should be deleted after reconcile. Unfortunately client-go does not
+	// provide fine-grain inspection of requests, so we can't verify the
+	// request beyond "has this been deleted".
+	// See https://github.com/kubernetes/client-go/issues/693
+	if _, err := env.pipeline.TektonV1beta1().PipelineRuns(pr.GetNamespace()).Get(pr.GetName(), metav1.GetOptions{}); !errors.IsNotFound(err) {
+		t.Fatalf("Get(%s): %v", pr.Name, err)
 	}
 }

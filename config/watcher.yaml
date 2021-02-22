@@ -48,6 +48,7 @@ spec:
               "tekton-results-api-service.tekton-pipelines.svc.cluster.local:50051",
               "-auth_mode",
               "token",
+              "-completed_run_grace_period", "10s",
             ]
           volumeMounts:
             - name: tls

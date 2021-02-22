@@ -43,6 +43,7 @@ func NewControllerWithConfig(ctx context.Context, client pb.ResultsClient, cfg *
 	}
 
 	impl := controller.NewImpl(c, logger, "PipelineRunResultsWatcher")
+	c.enqueue = impl.EnqueueKeyAfter
 
 	pipelineRunInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    impl.Enqueue,

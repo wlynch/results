@@ -42,6 +42,7 @@ func NewControllerWithConfig(ctx context.Context, client pb.ResultsClient, cfg *
 		cfg:               cfg,
 	}
 	impl := controller.NewImpl(c, logger, "TaskRunResultsWatcher")
+	c.enqueue = impl.EnqueueKeyAfter
 
 	taskRunInformer := taskruninformer.Get(ctx)
 	taskRunInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{

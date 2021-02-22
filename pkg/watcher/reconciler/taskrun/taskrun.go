@@ -16,6 +16,7 @@ package taskrun
 
 import (
 	"context"
+	"time"
 
 	"github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
 	"github.com/tektoncd/results/pkg/watcher/reconciler"
@@ -33,6 +34,7 @@ type Reconciler struct {
 	client            *results.Client
 	pipelineclientset versioned.Interface
 	cfg               *reconciler.Config
+	enqueue           func(types.NamespacedName, time.Duration)
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
@@ -63,26 +65,35 @@ func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
 		return err
 	}
 
-	if r.cfg.GetDisableAnnotationUpdate() {
-		// Don't update any annotations - nothing else to do.
-		return nil
+	if a := tr.GetAnnotations(); !r.cfg.GetDisableAnnotationUpdate() && (result.GetName() != a[annotation.Result] || record.GetName() != a[annotation.Record]) {
+		// Since at least 1 is missing, update TaskRun with Result Annotations.
+		patch, err := annotation.Add(result.GetName(), record.GetName())
+		if err != nil {
+			log.Errorf("error adding Result annotations: %v", err)
+			return err
+		}
+		if _, err := r.pipelineclientset.TektonV1beta1().TaskRuns(tr.GetNamespace()).Patch(tr.Name, types.MergePatchType, patch); err != nil {
+			log.Errorf("TaskRun.Patch: %v", err)
+			return err
+		}
 	}
 
-	if a := tr.GetAnnotations(); result.GetName() == a[annotation.Result] && record.GetName() == a[annotation.Record] {
-		// Result annotations are already present in the TaskRun.
-		// Nothing else to do.
-		return nil
-	}
+	inPipeline, _, _ := tr.IsPartOfPipeline()
+	// If the TaskRun is complete and not yet marked for deletion, cleanup the
+	// run resource from the cluster.
+	if tr.IsDone() && r.cfg.GetCompletedResourceGracePeriod() != 0 && !inPipeline {
+		// We haven't hit the grace period yet - reenqueue the key for processing later.
+		if s := time.Since(record.GetUpdatedTime().AsTime()); s < r.cfg.GetCompletedResourceGracePeriod() {
+			log.Infof("taskrun is not ready for deletion - grace period: %v, time since completion: %v", r.cfg.GetCompletedResourceGracePeriod(), s)
+			r.enqueue(tr.GetNamespacedName(), r.cfg.GetCompletedResourceGracePeriod())
+			return nil
+		}
 
-	// Update TaskRun with Result Annotations.
-	patch, err := annotation.Add(result.GetName(), record.GetName())
-	if err != nil {
-		log.Errorf("error adding Result annotations: %v", err)
-		return err
-	}
-	if _, err := r.pipelineclientset.TektonV1beta1().TaskRuns(tr.GetNamespace()).Patch(tr.Name, types.MergePatchType, patch); err != nil {
-		log.Errorf("TaskRun.Patch: %v", err)
-		return err
+		log.Infof("deleting TaskRun UID %s", tr.GetUID())
+		if err := r.pipelineclientset.TektonV1beta1().TaskRuns(tr.GetNamespace()).Delete(tr.Name, &metav1.DeleteOptions{}); err != nil {
+			log.Errorf("TaskRun.Delete: %v", err)
+			return err
+		}
 	}
 	return nil
 }
