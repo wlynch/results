@@ -9,11 +9,11 @@ spec:
     - name: repo
       description: git repo url to clone
       type: string
-      default: https://github.com/tektoncd/results
+      default: https://github.com/wlynch/results
     - name: ref
       description: git repo ref to checkout
       type: string
-      default: main
+      default: kind-runner3
     # TODO: Refactor this to a Pipeline to make the kind task reusable.
     steps:
     - image: docker.io/alpine/git

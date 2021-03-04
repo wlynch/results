@@ -14,25 +14,16 @@ cleanup() {
 trap cleanup EXIT
 
 main() {
+    export KO_DOCKER_REPO="kind.local"
+    export KIND_CLUSTER_NAME="tekton-results"
+
     ROOT="$(git rev-parse --show-toplevel)"
 
-    # Setup
-    kind create cluster --loglevel=debug --config "${ROOT}/test/e2e/kind-cluster.yaml"
-    kind export kubeconfig
-
-    # Install
-
-    # TODO: ko fails if we try to run/source install.sh, but doesn't if we inline verbatim.
-    # We should figure out how we can depend on the same script - there's probably a load bearing
-    # local variable somewhere.
-
-    export KO_DOCKER_REPO="kind.local"
-    export KIND_CLUSTER_NAME="kind"
-
-    ./test/e2e/01-install.sh
+    ${ROOT}/test/e2e/00-setup.sh
+    ${ROOT}/test/e2e/01-install.sh
 
     # Test
-    go test --tags=e2e ./test/e2e/...
+    go test --tags=e2e ${ROOT}/test/e2e/...
 }
 
 main
